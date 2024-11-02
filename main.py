@@ -17,7 +17,7 @@ def get_calendar_and_holidays(year):
         month_name = month_section.find("caption", class_="calendar-title").text.strip()
         calendrier[month_name] = []
         for row in month_section.find("tbody").find_all("tr"):
-            week_data = [cell.text.strip() for cell in row.find_all("td") if cell.text.strip()]
+            week_data = [cell.text.strip() if cell.text.strip() else ' ' for cell in row.find_all("td")]
             calendrier[month_name].append(week_data)
 
     # Extraire les jours fériés
@@ -35,12 +35,15 @@ def get_calendar_and_holidays(year):
 
 # Formater les résultats JSON selon le modèle demandé
 def format_result(data):
+    # En-tête des jours de la semaine
+    week_header = "n°\t Lu\tMa\tMe\tJe\tVe\tSa\tDi"
+
     # Formater le calendrier
     calendrier_formatted = "Calendrier par mois:\n"
     for month, weeks in data["calendrier"].items():
-        calendrier_formatted += f"\n{month}:\n"
-        for week_num, days in enumerate(weeks, start=1):
-            calendrier_formatted += f"\t {week_num} | " + " | ".join(days) + "\n"
+        calendrier_formatted += f"\n{month}:\n{week_header}\n"
+        for week in weeks:
+            calendrier_formatted += "\t " + "\t".join(week) + "\n"
     
     # Formater les jours fériés
     jours_feries_formatted = "\nJours fériés 2025 :\n"
