@@ -9,11 +9,6 @@ response = requests.get(url)
 response.raise_for_status()
 soup = BeautifulSoup(response.text, "html.parser")
 
-# Extraire les informations du menu et de l'en-tête
-menu_text = soup.find("div", class_="navbar").text.strip()
-date_info = soup.find("div", class_="bs-docs-section").text.strip()
-header_text = soup.find("div", class_="main_info").text.strip()
-
 # Extraction des mois et des jours fériés
 calendrier = {}
 for month_section in soup.find_all("div", class_="jaarkalender"):
@@ -31,17 +26,15 @@ for table in ["legenda_left", "legenda_right"]:
         event = row.find("div", class_="fl").text.strip()
         jours_feries.append({"date": date, "event": event})
 
-# Affichage des informations extraites
-print("Menu :", menu_text)
-print("Date et semaine actuelle :", date_info)
-print("En-tête du site :", header_text)
-
-print("\nCalendrier par mois :")
+# Affichage du calendrier par mois sans sections superflues
+print("Calendrier par mois:")
 for month, weeks in calendrier.items():
     print(f"\n{month}:")
     for week in weeks:
         print("\t", " | ".join(week))
 
+# Affichage des jours fériés
 print("\nJours fériés 2025 :")
 for jour in jours_feries:
     print(f"{jour['date']} - {jour['event']}")
+    
