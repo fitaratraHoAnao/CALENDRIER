@@ -1,39 +1,70 @@
+from flask import Flask, request, jsonify
 import requests
 from bs4 import BeautifulSoup
 
-# URL de la page du calendrier
-url = "https://www.calendrier-365.fr/calendrier-2025.html"
+app = Flask(__name__)
 
-# Récupérer le contenu de la page
-response = requests.get(url)
-response.raise_for_status()
-soup = BeautifulSoup(response.text, "html.parser")
+# Fonction pour scraper le calendrier et les jours fériés
+def get_calendar_and_holidays(year):
+    url = f"https://www.calendrier-365.fr/calendrier-{year}.html"
+    response = requests.get(url)
+    response.raise_for_status()
+    soup = BeautifulSoup(response.text, "html.parser")
 
-# Extraction des mois et des jours fériés
-calendrier = {}
-for month_section in soup.find_all("div", class_="jaarkalender"):
-    month_name = month_section.find("caption", class_="calendar-title").text.strip()
-    calendrier[month_name] = []
-    for row in month_section.find("tbody").find_all("tr"):
-        week_data = [cell.text.strip() for cell in row.find_all("td") if cell.text.strip()]
-        calendrier[month_name].append(week_data)
+    # Extraire le calendrier par mois
+    calendrier = {}
+    for month_section in soup.find_all("div", class_="jaarkalender"):
+        month_name = month_section.find("caption", class_="calendar-title").text.strip()
+        calendrier[month_name] = []
+        for row in month_section.find("tbody").find_all("tr"):
+            week_data = [cell.text.strip() for cell in row.find_all("td") if cell.text.strip()]
+            calendrier[month_name].append(week_data)
 
-# Extraction des jours fériés
-jours_feries = []
-for table in ["legenda_left", "legenda_right"]:
-    for row in soup.find("table", {"id": table}).find_all("tr"):
-        date = row.find("div", class_="legenda_day").text.strip()
-        event = row.find("div", class_="fl").text.strip()
-        jours_feries.append({"date": date, "event": event})
+    # Extraire les jours fériés
+    jours_feries = []
+    for table in ["legenda_left", "legenda_right"]:
+        for row in soup.find("table", {"id": table}).find_all("tr"):
+            date = row.find("div", class_="legenda_day").text.strip()
+            event = row.find("div", class_="fl").text.strip()
+            jours_feries.append({"date": date, "event": event})
 
-# Affichage du calendrier par mois sans sections superflues
-print("Calendrier par mois:")
-for month, weeks in calendrier.items():
-    print(f"\n{month}:")
-    for week in weeks:
-        print("\t", " | ".join(week))
+    return {
+        "calendrier": calendrier,
+        "jours_feries": jours_feries
+    }
 
-# Affichage des jours fériés
-print("\nJours fériés 2025 :")
-for jour in jours_feries:
-    print(f"{jour['date']} - {jour['event']}")
+# Formater les résultats JSON selon le modèle demandé
+def format_result(data):
+    # Formater le calendrier
+    calendrier_formatted = "Calendrier par mois:\n"
+    for month, weeks in data["calendrier"].items():
+        calendrier_formatted += f"\n{month}:\n"
+        for week_num, days in enumerate(weeks, start=1):
+            calendrier_formatted += f"\t {week_num} | " + " | ".join(days) + "\n"
+    
+    # Formater les jours fériés
+    jours_feries_formatted = "\nJours fériés 2025 :\n"
+    for jour in data["jours_feries"]:
+        jours_feries_formatted += f"{jour['date']} - {jour['event']}\n"
+
+    return calendrier_formatted + jours_feries_formatted
+
+# Route GET pour rechercher le calendrier d'une année
+@app.route('/recherche', methods=['GET'])
+def recherche_calendrier():
+    year = request.args.get("calendrier")
+    
+    # Vérification de l'année spécifiée
+    if not year or not year.isdigit():
+        return jsonify({"error": "Veuillez spécifier une année valide (par exemple, ?calendrier=2025)"}), 400
+    
+    try:
+        data = get_calendar_and_holidays(year)
+        formatted_result = format_result(data)
+        return jsonify({"result": formatted_result})
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": "Erreur lors de la récupération du calendrier"}), 500
+
+# Lancement de l'application Flask sur host=0.0.0.0 et port=5000
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
